@@ -229,7 +229,8 @@ static int check_pid_monitored(int sysc, pid_t pid) {
 	return 0;	
 }
 //----------------------------------------------------------------
-//----- HELPER FUNCTIONS -----------------------------------------
+
+//----- HELPER FUNCTIONS FOR ERROR CHECK & LOCK ------------------
 /**
 * Helper function to check for error given cmd, syscall, pid.
 * Return error code if error found, else return 0.
@@ -401,6 +402,8 @@ asmlinkage long interceptor(struct pt_regs reg) {
 	return table[reg.ax].f(reg); 
 }
 
+//----- HELPER FUNCTIONS FOR USER COMMANDS--------------------------
+/*
 /**
 * Helper function to intercept system call.
 * Replace system call with generic interceptor function and
@@ -487,6 +490,8 @@ int cmd_request_stop_monitoring(int syscall, int pid){
 	return result; //result is -EINVAL if pid not exist
 
 }
+
+//----------------------------------------------------------------
 
 /**
  * My system call - this function is called whenever a user issues a MY_CUSTOM_SYSCALL system call.
