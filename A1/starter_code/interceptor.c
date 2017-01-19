@@ -248,7 +248,11 @@ int check_error(int cmd, int syscall, int pid){
 	//Cannot monitor non existing pid
 	}else if( (cmd == REQUEST_START_MONITORING) || (cmd == REQUEST_STOP_MONITORING)){ 
 		if ((pid < 0) || (pid_task(find_vpid(pid), PIDTYPE_PID) == NULL)){
-			return -EINVAL;
+			if (pid == 0){
+				//do nothing
+			}else{
+				return -EINVAL;
+			}
 		}
 	}
 
@@ -285,7 +289,12 @@ int check_error(int cmd, int syscall, int pid){
 
 	//Cannot stop monitoroing porcess that is not monitered 
 	}else if ((cmd == REQUEST_STOP_MONITORING) && (!check_pid_monitored(syscall, pid))){ 
-		return -EINVAL;
+		if (pid == 0){
+			//do nothing, 
+		}else{
+			return -EINVAL;
+		}
+		
 	}
 
 	/*----Invalid -EBUSY errors----*/
@@ -531,16 +540,15 @@ int cmd_request_stop_monitoring(int syscall, int pid){
 asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 
 	int err_code;
+	lock_pidlist_calltable();
 
-	//lock_pidlist_calltable();
+	//look for error, all error check conducted here
 	err_code = check_error(cmd, syscall, pid);
+	unlock_pidlist_calltable();
+	
 	if (err_code){
 		return err_code;
 	}
-	
-	
-	//unlock_pidlist_calltable();
-
 
 	//User Commands and related action to perform
 	switch (cmd){
@@ -562,7 +570,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 			break;
 
 		default:
-			return -EINVAL; //command unfound
+			return -EINVAL; //command not found
 	}
 }
 
