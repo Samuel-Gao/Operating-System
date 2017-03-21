@@ -18,7 +18,7 @@ struct ext2_inode *find_inode(int index){
 
   group_desc = (struct ext2_group_desc*)(disk + 2 * EXT2_BLOCK_SIZE);
   inode_tbl = disk + group_desc->bg_inode_table * EXT2_BLOCK_SIZE;
-  inode = (struct ext2_inode*)(inode_tbl + (index-1) * sizeof(struct ext2_inode));
+  inode = (struct ext2_inode*)(inode_tbl + ((index-1) * sizeof(struct ext2_inode)));
 
   return inode;
 }
@@ -35,13 +35,7 @@ void print_inode_dir(struct ext2_inode *inode, int flag){
 	while (inode->i_block[block] != 0){
 		dir_block = inode->i_block[block];
 		struct ext2_dir_entry_2 *dir = (struct ext2_dir_entry_2 *)(disk + (dir_block * EXT2_BLOCK_SIZE));
-	
-		// if (strcmp(dir->file_type, EXT2_FT_REG_FILE) == 0){
-		// 	printf("inode is %s\n",dir->name);
-		// 	return;
-		// }
 
-		// printf("inode is %i\n",dir->name_len);
 		unsigned char *cur_size;
 		unsigned char *total_size = (disk + (dir_block * EXT2_BLOCK_SIZE));
 		cur_size = total_size;
@@ -52,10 +46,11 @@ void print_inode_dir(struct ext2_inode *inode, int flag){
 			char *fname = malloc(sizeof(dir->name_len));
 			strncpy(fname,dir->name, dir->name_len);
 			
-			if (flag && (strcmp(fname, ".") == 0 || strcmp(fname, "..")==0)){
+			if (!flag && (strcmp(fname, ".") == 0 || strcmp(fname, "..")==0)){
 				//don't print 
 			}else{
 				printf("%s\n", fname);
+				// printf("and inode for this dir is %i at blcok %i\n", dir->inode, dir_block);
 			}
 			
 			cur_size += dir->rec_len;
@@ -65,44 +60,14 @@ void print_inode_dir(struct ext2_inode *inode, int flag){
 	}
 }
 
-/* Helper function to find the inode number of a file in the given inode
-* if it exist, else return -1
+/* Helper function to find the inode number of a file in the given inode.
+* If it exist and is dir, return inode number.
+* If it exist and is regular file, return 0.
+* Else return -1
 */
 int find_file_inode(struct ext2_inode *inode, char *file_name){
 
 	unsigned int dir_block;
-	// unsigned int inode_size;
-	// unsigned int cur_size;
-	
-
-
-
-	// dir_block = inode->i_block[block];
-
-	// struct ext2_dir_entry_2 *dir = (struct ext2_dir_entry_2 *)(disk + (dir_block * EXT2_BLOCK_SIZE));
-	// inode_size = inode->i_size;
-	// cur_size = 0;
-	
-	
-	// while (cur_size < inode_size){
-
-	// 	char *fname = malloc(sizeof(dir->name_len));
-	// 	strncpy(fname,dir->name, dir->name_len);
-		
-	// 	if (strcmp(fname, file_name) == 0){
-	// 		return dir->inode;
-
-	// 	}
-	// 	dir = (void *)dir + dir->rec_len;
-	// 	cur_size += dir->rec_len;
-
-
-	// 	if (cur_size % EXT2_BLOCK_SIZE == 0) { 
-	//       block++;
-	//       dir_block = inode->i_block[block];
-	//       dir = (struct ext2_dir_entry_2*)(disk + EXT2_BLOCK_SIZE * dir_block);
-	//     }
-	// }
 
 	//loop through for each block
 	int block = 0;
@@ -120,10 +85,10 @@ int find_file_inode(struct ext2_inode *inode, char *file_name){
 			char *fname = malloc(sizeof(dir->name_len));
 			strncpy(fname,dir->name, dir->name_len);
 			
-			if (strcmp(fname, file_name) == 0){
-				printf("size of bfiel is %i\n", dir->name_len);
-				printf("inode is %i\n", dir->inode);
+			if (strcmp(fname, file_name) == 0 && dir->file_type !=  EXT2_FT_REG_FILE){
 				return dir->inode;
+			}else if (strcmp(fname, file_name) == 0 && dir->file_type == EXT2_FT_REG_FILE){
+				return 0;
 			}
 			
 			cur_size += dir->rec_len;
@@ -134,41 +99,65 @@ int find_file_inode(struct ext2_inode *inode, char *file_name){
 	
 	return -1;
 }
-
+/* Helper function to print the file */
+void print_inode_file(char *file, int flag_a){
+	if (flag_a){
+		printf(".\n");
+		printf("..\n");
+		printf("%s\n", file);
+	}else {
+		printf("%s\n", file);
+	}
+}
 /* Helper function to find the inode given the directory
 */
-struct ext2_inode *find_inode_by_dir(char *dir){
+int find_inode_by_dir(char *dir, int flag_a){
 
 	//return root node if dir is /
 	if (strlen(dir) == 1){
-		return find_inode(2);
-	
+		print_inode_dir(find_inode(2), flag_a);
+		return 1;
 	//trim if there is / in the path
 	}else if (strlen(dir) > 1 && strcmp(&dir[strlen(dir) - 1], "/") == 0){
 		dir[strlen(dir) - 1] = '\0';
 	}
 
 	char *token;
+	char *last_token;
 	struct ext2_inode *cur_inode;
 
 	//look for inode for the dir
+	int inode_num = 0;
 	while ((token = strsep(&dir, "/"))) {
-
+		last_token = token;
+		
 		if (strcmp(token, "") == 0){
 			cur_inode = find_inode(2);
 			find_file_inode(cur_inode, token);
 		}else{
-			int inode_num = find_file_inode(cur_inode, token);
+			inode_num = find_file_inode(cur_inode, token);
 			
 			//check path exist, else return null
-			if (inode_num != -1){
+			if (inode_num >0){
 				cur_inode = find_inode(inode_num);
-			}else{
-				return NULL;
+			}else if (inode_num == -1){
+				cur_inode = NULL;
 			}
 			
 		}
 	}
 
-	return cur_inode;
+	if (inode_num == -1){
+      	return -1; 
+
+    }else if (inode_num > 0){
+    	print_inode_dir(cur_inode, flag_a);
+    	return 1;
+
+    }else if (inode_num == 0){
+    	print_inode_file(last_token, flag_a);
+    	return 1;
+    }
+
+	return 0;
 } 
