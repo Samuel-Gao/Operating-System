@@ -159,5 +159,42 @@ int find_inode_by_dir(char *dir, int flag_a){
     	return 1;
     }
 
-	return 0;
+	return 1;
 } 
+
+int path_exist(char *dir){
+
+	//return root node if dir is /
+	if (strlen(dir) == 1){
+		return 1;
+
+	//trim if there is / in the path
+	}else if (strlen(dir) > 1 && strcmp(&dir[strlen(dir) - 1], "/") == 0){
+		dir[strlen(dir) - 1] = '\0';
+	}
+
+	char *token;
+	struct ext2_inode *cur_inode;
+
+	//look for inode for the dir
+	int inode_num = 0;
+	while ((token = strsep(&dir, "/"))) {
+		
+		if (strcmp(token, "") == 0){
+			cur_inode = find_inode(2);
+			find_file_inode(cur_inode, token);
+		}else{
+			inode_num = find_file_inode(cur_inode, token);
+			
+			//check path exist, else return null
+			if (inode_num >0){
+				cur_inode = find_inode(inode_num);
+			}else if (inode_num == -1){
+				return -1;
+			}
+			
+		}
+	}
+
+	return 1;
+}
