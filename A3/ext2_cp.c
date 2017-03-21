@@ -10,7 +10,7 @@
 
 unsigned char *disk;
 /* Takes 3 arguments, disk, native path to a file, absolute path
-* Copt file on native path to absolute path. 
+* Copt file from source to destination 
 * Return ENOENT if path does not exist
 */
 int main(int argc, char *argv[]) {
@@ -21,10 +21,10 @@ int main(int argc, char *argv[]) {
 	}	
 
 	char* vir_disk = argv[1];
-	char *nat_path = argv[2];
-	char *ab_path = argv[3];
+	char *source = argv[2];
+	char *dest = argv[3];
 
-	if (strncmp(ab_path, "/", 1) != 0 || strncmp(nat_path, "/", 1) != 0){
+	if (strncmp(dest, "/", 1) != 0 || strncmp(source, "/", 1) != 0){
 		perror("Error: Invalid path. Please use absolute path.");
 		return -1;
 	} 
@@ -36,14 +36,25 @@ int main(int argc, char *argv[]) {
 		exit(1);
     }
 
+   	struct ext2_inode *src_file_inode = find_inode_by_dir(source);
+   	struct ext2_inode *dest_dir_inode = find_inode_by_dir(dest);
 
    	//check if path are both valid
-   	if (path_exist(nat_path) == -1 || path_exist(ab_path) == -1){
+   	if ( src_file_inode == NULL|| dest_dir_inode == NULL){
    		printf("No such file or directory\n");
+   		return ENOENT;
+   	
+   	//if source is not a file
+   	}else if (!(src_file_inode->i_mode & EXT2_S_IFREG)){
+   		printf("Source is not a file\n");
+   		return ENOENT;
+
+   	//if destination is not a dir
+   	}else if (!(dest_file_inode->i_mode & EXT2_S_IFDIR)){
+   		printf("Destination is not a directory\n");
    		return ENOENT;
    	}
 
-   	
    	
     //remove inode for source, updates data
     //create new inode for destination, updates data

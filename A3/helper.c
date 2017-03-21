@@ -123,7 +123,7 @@ void print_inode_file(char *file, int flag_a){
 }
 /* Helper function to find the inode given the directory
 */
-struct ext2_inode *find_inode_by_dir(char *dir, int flag_a){
+struct ext2_inode *find_inode_by_dir(char *dir){
 
 	//return root node if dir is /
 	if (strlen(dir) == 1){
