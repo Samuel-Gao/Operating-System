@@ -85,11 +85,15 @@ int find_file_inode(struct ext2_inode *inode, char *file_name){
 			char *fname = malloc(sizeof(dir->name_len));
 			strncpy(fname,dir->name, dir->name_len);
 			
-			if (strcmp(fname, file_name) == 0 && dir->file_type !=  EXT2_FT_REG_FILE){
+			if (strcmp(fname, file_name) == 0 && dir->file_type){
 				return dir->inode;
-			}else if (strcmp(fname, file_name) == 0 && dir->file_type == EXT2_FT_REG_FILE){
-				return 0;
 			}
+
+			// if (strcmp(fname, file_name) == 0 && dir->file_type !=  EXT2_FT_REG_FILE){
+			// 	return dir->inode;
+			// }else if (strcmp(fname, file_name) == 0 && dir->file_type == EXT2_FT_REG_FILE){
+			// 	return 0;
+			// }
 			
 			cur_size += dir->rec_len;
 			dir = (struct ext2_dir_entry_2 *)cur_size;
@@ -101,35 +105,44 @@ int find_file_inode(struct ext2_inode *inode, char *file_name){
 }
 /* Helper function to print the file */
 void print_inode_file(char *file, int flag_a){
+
+	char *token;
+	char *last_token;
+	
+	while ((token = strsep(&file, "/"))) {
+		last_token = token;
+	}
+
 	if (flag_a){
 		printf(".\n");
 		printf("..\n");
-		printf("%s\n", file);
+		printf("%s\n", last_token);
 	}else {
-		printf("%s\n", file);
+		printf("%s\n", last_token);
 	}
 }
 /* Helper function to find the inode given the directory
 */
-int find_inode_by_dir(char *dir, int flag_a){
+struct ext2_inode *find_inode_by_dir(char *dir, int flag_a){
 
 	//return root node if dir is /
 	if (strlen(dir) == 1){
-		print_inode_dir(find_inode(2), flag_a);
-		return 1;
+		// print_inode_dir(find_inode(2), flag_a);
+		// return 1;
+		return find_inode(2);
 	//trim if there is / in the path
 	}else if (strlen(dir) > 1 && strcmp(&dir[strlen(dir) - 1], "/") == 0){
 		dir[strlen(dir) - 1] = '\0';
 	}
 
 	char *token;
-	char *last_token;
+	// char *last_token;
 	struct ext2_inode *cur_inode;
 
 	//look for inode for the dir
 	int inode_num = 0;
 	while ((token = strsep(&dir, "/"))) {
-		last_token = token;
+		// last_token = token;
 		
 		if (strcmp(token, "") == 0){
 			cur_inode = find_inode(2);
@@ -146,21 +159,22 @@ int find_inode_by_dir(char *dir, int flag_a){
 			
 		}
 	}
+	return cur_inode;
+}
 
-	if (inode_num == -1){
-      	return -1; 
+	// if (inode_num == -1){
+ //      	return -1; 
 
-    }else if (inode_num > 0){
-    	print_inode_dir(cur_inode, flag_a);
-    	return 1;
+ //    }else if (inode_num > 0){
+ //    	print_inode_dir(cur_inode, flag_a);
+ //    	return 1;
 
-    }else if (inode_num == 0){
-    	print_inode_file(last_token, flag_a);
-    	return 1;
-    }
+ //    }else if (inode_num == 0){
+ //    	print_inode_file(last_token, flag_a);
+ //    	return 1;
+ //    }
 
-	return 1;
-} 
+	// return 1; 
 
 int path_exist(char *dir){
 

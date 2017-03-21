@@ -64,9 +64,18 @@ int main(int argc, char *argv[]) {
 		exit(1);
     }
 
-    if (find_inode_by_dir(dir, flag_a) == -1){
+    char *dir_cpy = malloc(sizeof(dir));
+    memcpy(dir_cpy, dir, strlen(dir) + 1);
+    
+    struct ext2_inode *node = find_inode_by_dir(dir, flag_a);
+    if (node == NULL){
       printf("No such file or directory\n");
       return ENOENT;
+    
+    }else if(node->i_mode & EXT2_S_IFDIR){
+    	print_inode_dir(node, flag_a);
+    }else if (node->i_mode & EXT2_S_IFREG){
+    	print_inode_file(dir_cpy, flag_a);
     }
    
     return 0;

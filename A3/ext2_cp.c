@@ -42,6 +42,8 @@ int main(int argc, char *argv[]) {
    		printf("No such file or directory\n");
    		return ENOENT;
    	}
+
+   	
    	
     //remove inode for source, updates data
     //create new inode for destination, updates data
