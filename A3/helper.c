@@ -241,16 +241,18 @@ int alloc_inode(){
 
 void copy_inode(struct ext2_inode *dest, struct ext2_inode *src){
 
-	dest = src;
-	dest->i_mode |= EXT2_S_IFREG;
+	memcpy(dest, src, EXT2_BLOCK_SIZE);
 	dest->i_links_count = 1;
 
 	int i;
-	
 	//copy direct block 
 	for(i=0; i < 12; i++){
 		if (src->i_block[i] != 0){
 			dest->i_block[i] = allocate_block();
+			char *dest_block = (char *)(disk + dest->i_block[i] * EXT2_BLOCK_SIZE);
+			 char *src_block = (char *)(disk + src->i_block[i] * EXT2_BLOCK_SIZE);
+			memcpy(dest_block, src_block, EXT2_BLOCK_SIZE);
+
 		}else{
 			dest->i_block[i] = 0;
 		}
