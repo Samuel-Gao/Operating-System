@@ -72,7 +72,8 @@ int main(int argc, char *argv[]) {
 			struct ext2_dir_entry_2 *entry = create_new_entry(alloc_node, get_last_dir(path), EXT2_FT_DIR);
 			add_entry(path_inode, entry, get_last_dir(path));
 		}
-	
+
+	//create dir not at root level
 	}else{
 		char *parent_path = malloc(sizeof(char *));
 		strncpy(parent_path, path, strlen(path) - strlen(get_last_dir(path)));
