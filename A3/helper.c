@@ -45,7 +45,7 @@ void print_inode_dir(struct ext2_inode *inode, int flag){
 
 			char *fname = malloc(sizeof(dir->name_len));
 			strncpy(fname,dir->name, dir->name_len);
-			
+		
 			if (!flag && (strcmp(fname, ".") == 0 || strcmp(fname, "..")==0)){
 				//don't print 
 			}else{
@@ -351,8 +351,8 @@ void add_entry(struct ext2_inode * inode, struct ext2_dir_entry_2 *dir_entry, ch
 			inode->i_block[i] = allocate_block();
 			dir_entry->rec_len = EXT2_BLOCK_SIZE;
 
-			memcpy(disk + block * EXT2_BLOCK_SIZE + dir_entry_size, entry_name, dir_entry->name_len);
-			(*(struct ext2_dir_entry_2 *)(disk + block * EXT2_BLOCK_SIZE)) = *dir_entry;
+			memcpy(disk + inode->i_block[i] * EXT2_BLOCK_SIZE + dir_entry_size, entry_name, dir_entry->name_len);
+			(*(struct ext2_dir_entry_2 *)(disk + inode->i_block[i] * EXT2_BLOCK_SIZE)) = *dir_entry;
 			return;
 		
 		//if block is in use, check if there is space for new entry
@@ -406,4 +406,3 @@ char *get_last_dir(char *dir){
 	}
 	return last_token;
 }
-

@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
 	
 	if (argc < 4){
 		perror("Error: Expected argument ext2_cp <disk> <path to a file> <absolute path>");
-		return -1;
+		return ENOENT;
 	}	
 
 	char* vir_disk = argv[1];
@@ -34,11 +34,13 @@ int main(int argc, char *argv[]) {
     strcat(dest_n_src, get_last_dir(source));
   }
 
+  //If paths are not absolute, return error
 	if (strncmp(dest, "/", 1) != 0 || strncmp(source, "/", 1) != 0){
-		perror("Error: Invalid path. Please use absolute path.");
-		return -1;
+		printf("Error: Invalid path. Please use absolute path.\n");
+		return ENOENT;
 	} 
 
+  //read virtual disk
 	int fd = open(vir_disk, O_RDWR);
 	disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if(disk == MAP_FAILED) {
@@ -75,7 +77,7 @@ int main(int argc, char *argv[]) {
     
         if (alloc_node == -1){
           printf("Insufficient number of inodes\n");
-          return ENOENT;
+          exit(1);
         }
 
         copy_inode(find_inode(alloc_node), src_file_inode);
@@ -89,7 +91,7 @@ int main(int argc, char *argv[]) {
     
     if (alloc_node == -1){
       printf("Insufficient number of inodes\n");
-      return ENOENT;
+      exit(1);
     }
 
     copy_inode(find_inode(alloc_node), src_file_inode);

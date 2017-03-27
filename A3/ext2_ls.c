@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
     char *dir_cpy = malloc(sizeof(dir));
     memcpy(dir_cpy, dir, strlen(dir) + 1);
     
-    struct ext2_inode *node = find_inode_by_dir(dir, flag_a);
+    struct ext2_inode *node = find_inode_by_dir(dir);
     if (node == NULL){
       printf("No such file or directory\n");
       return ENOENT;
