@@ -457,7 +457,9 @@ void remove_file(char *dir){
 					pre_entry->rec_len += cur_entry->rec_len;
 					printf("removed\n");
 					return;
+					
 				}
+				pre_entry = cur_entry;
 				cur_dir += cur_entry->rec_len;
 			}
 
