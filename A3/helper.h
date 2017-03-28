@@ -16,3 +16,5 @@ struct ext2_dir_entry_2 * create_new_entry(int src_inode, char *file_name, unsig
 void add_entry(struct ext2_inode * inode, struct ext2_dir_entry_2 *dir, char * entry_name);
 
 void remove_file(char *dir);
+void create_hard_link(struct ext2_inode *src, struct ext2_inode *target, char *file_name);
+int find_inode_idx(struct ext2_inode *inode);

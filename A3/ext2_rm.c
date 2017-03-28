@@ -35,20 +35,10 @@ int main(int argc, char *argv[]) {
 
 	char *vir_disk=argv[1];
 	char *dir = argv[2];
-	// int flag;
 
 	if (check_error(argc, argv) == -1){
 		exit(1);
 	}
-
-	//check if user flag -a
-	// if (strcmp(argv[2], "-r") == 0){
-	// 	flag = 1;
-	// 	dir = argv[3];
-	// }else{
-	// 	flag = 0;
-	// 	dir = argv[2];
-	// }
 
 	if (strncmp(dir, "/", 1) != 0){
 		perror("Error: Invalid path. Please use absolute path.");
@@ -72,7 +62,7 @@ int main(int argc, char *argv[]) {
     	return ENOENT;
     
     //If it is a directory, return EISDIR
-    }else if ((inode != NULL) & (inode->i_mode & EXT2_S_IFDIR)){
+    }else if ((inode != NULL) && (inode->i_mode & EXT2_S_IFDIR)){
     	printf("Error: File is a directory.\n");
     	return EISDIR;
     
@@ -82,32 +72,4 @@ int main(int argc, char *argv[]) {
     }
 
     exit(1);
-
-  	if (inode != NULL){
-  		struct ext2_inode *root = find_inode(2);
-  		int block = root->i_block[0];
-  		struct ext2_dir_entry_2 *dir = (struct ext2_dir_entry_2 *)(disk + block * 1024);
-  		
-  		char *len = (char *)(disk + block * 1024);
-  		char *total = len + 1024;
-
-  		struct ext2_inode *f_inode = find_inode(12);
-  		f_inode->i_size = 0;
-  		f_inode->i_block[0] = 0;
-  		printf("i_size %i\n",f_inode->i_size );
-
-  		while (len < total){
-  			printf("inode %i\n",dir->inode );
-  			printf("rec_len %i\n",dir->rec_len );
-  			printf("name_len %i\n",dir->name_len );
-  			printf("name %s\n",dir->name);
-  			printf("================\n");
-  			
-  			len += dir->rec_len;
-  			dir = (struct ext2_dir_entry_2 *)len;
-  		}
-  		// printf("%lu\n", (unsigned long)time(NULL)); 
-  	}
-
-
 }

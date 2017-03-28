@@ -24,6 +24,24 @@ struct ext2_inode *find_inode(int index){
   return inode;
 }
 
+/* Helper function to find the inode index given 
+ * the inode structure.
+ */
+
+int find_inode_idx(struct ext2_inode *inode){
+	if (inode != NULL){
+		int i = 2;
+		while(1){
+			if (find_inode(i) == inode){
+				return i;
+			} 
+			i++;
+		}
+	}
+
+	return 0;
+}
+
 /* Helper function to print directories given the inode
 *  If flag is 1, print . and .. as well. 
 */
@@ -416,6 +434,7 @@ void remove_file(char *dir){
 	//set i_dttime
 	struct ext2_inode *inode_to_remove = find_inode_by_dir(dir);
 	inode_to_remove->i_dtime = (unsigned int)time(NULL);
+	inode_to_remove->i_links_count--;
 
 	char *entry_to_remove = get_last_dir(dir);
 	char parent [strlen(dir)+1];
@@ -447,15 +466,12 @@ void remove_file(char *dir){
 			while (cur_dir < end_dir){
 				//recalculate dir_length
 				cur_entry = (struct ext2_dir_entry_2*)cur_dir;
-				printf("file name %s\n", cur_entry->name);
-				printf("trying to delete %s\n", entry_to_remove);
 
 				char *fname = malloc(sizeof(cur_entry->name_len));
 				strncpy(fname,cur_entry->name, cur_entry->name_len);
 				
 				if (strcmp(fname, entry_to_remove) == 0){
 					pre_entry->rec_len += cur_entry->rec_len;
-					printf("removed\n");
 					return;
 					
 				}
@@ -467,11 +483,15 @@ void remove_file(char *dir){
 			break;
 		}
 	}
-
-	//if not in direct link, search indirect link
 }
 
-
-
+/* Helper function to create a hard link of src at target. 
+ */
+void create_hard_link(struct ext2_inode *src, struct ext2_inode *target, char *file_name){
+	int inode_idx = find_inode_idx(src);
+	printf("idx: %i\n",inode_idx);
+	struct ext2_dir_entry_2 *entry = create_new_entry(inode_idx, file_name, EXT2_FT_REG_FILE);
+	add_entry(target, entry, file_name);
+}
 //note to myslef:
 //1) Remember to update inode metatdata, link_count, i_block, 
