@@ -14,3 +14,5 @@ int allocate_block();
 char *get_last_dir(char *dir);
 struct ext2_dir_entry_2 * create_new_entry(int src_inode, char *file_name, unsigned char file_type);
 void add_entry(struct ext2_inode * inode, struct ext2_dir_entry_2 *dir, char * entry_name);
+
+void remove_file(char *dir);

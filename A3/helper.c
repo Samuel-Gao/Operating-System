@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <time.h>
 
 extern unsigned char *disk;
 
@@ -394,6 +395,9 @@ void add_entry(struct ext2_inode * inode, struct ext2_dir_entry_2 *dir_entry, ch
 	}
 }
 
+/* Helper function to get the last file name of the 
+ * given dir
+ */
 char *get_last_dir(char *dir){
 	char *token;
 	char *last_token;
@@ -406,3 +410,66 @@ char *get_last_dir(char *dir){
 	}
 	return last_token;
 }
+
+void remove_file(char *dir){
+
+	//set i_dttime
+	struct ext2_inode *inode_to_remove = find_inode_by_dir(dir);
+	inode_to_remove->i_dtime = (unsigned int)time(NULL);
+
+	char *entry_to_remove = get_last_dir(dir);
+	char parent [strlen(dir)+1];
+	realpath(dir, parent);
+
+	struct ext2_inode *parent_inode;
+	
+	//found the parent inode
+	if (strcmp(parent, dir) == 0){
+		parent_inode = find_inode(2);
+	}else{
+		parent_inode = find_inode_by_dir(parent);
+	}
+
+	//remove entry from directory;
+	//first search on directed link
+	int i;
+	int block;
+	for (i=0; i < 12; i++){
+		block = parent_inode->i_block[i];
+		if (block != 0){
+			
+			char *cur_dir = (char *)disk + block * EXT2_BLOCK_SIZE;
+			char *end_dir = (char *)cur_dir + EXT2_BLOCK_SIZE;
+
+			struct ext2_dir_entry_2 *cur_entry;
+			struct ext2_dir_entry_2 *pre_entry = (struct ext2_dir_entry_2*)cur_dir;
+
+			while (cur_dir < end_dir){
+				//recalculate dir_length
+				cur_entry = (struct ext2_dir_entry_2*)cur_dir;
+				printf("file name %s\n", cur_entry->name);
+				printf("trying to delete %s\n", entry_to_remove);
+
+				char *fname = malloc(sizeof(cur_entry->name_len));
+				strncpy(fname,cur_entry->name, cur_entry->name_len);
+				
+				if (strcmp(fname, entry_to_remove) == 0){
+					pre_entry->rec_len += cur_entry->rec_len;
+					printf("removed\n");
+					return;
+				}
+				cur_dir += cur_entry->rec_len;
+			}
+
+		}else{
+			break;
+		}
+	}
+
+	//if not in direct link, search indirect link
+}
+
+
+
+//note to myslef:
+//1) Remember to update inode metatdata, link_count, i_block, 
