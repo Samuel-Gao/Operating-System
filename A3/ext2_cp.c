@@ -125,38 +125,6 @@ int main(int argc, char *argv[]) {
 
   add_entry(dest_dir_inode,alloc_node, get_last_dir(source),EXT2_FT_REG_FILE);
 
-
-
-  //copy file or dir to dest
-  // if (src_file_inode->i_mode & EXT2_S_IFREG){
-      
-  //       int alloc_node = alloc_inode();
-    
-  //       if (alloc_node == -1){
-  //         printf("Insufficient number of inodes\n");
-  //         exit(1);
-  //       }
-
-  //       copy_inode(find_inode(alloc_node), src_file_inode);
-  //       struct ext2_dir_entry_2 *entry = create_new_entry(alloc_node, get_last_dir(source), EXT2_FT_REG_FILE);
-  //       add_entry(dest_dir_inode, entry, get_last_dir(source));
-       
-    
-  //   //if source is not a file
-  // }else{
-  //   int alloc_node = alloc_inode();
-    
-  //   if (alloc_node == -1){
-  //     printf("Insufficient number of inodes\n");
-  //     exit(1);
-  //   }
-
-  //   copy_inode(find_inode(alloc_node), src_file_inode);
-  //   struct ext2_dir_entry_2 *entry = create_new_entry(alloc_node, get_last_dir(source), EXT2_FT_DIR );
-  //   add_entry(dest_dir_inode, entry, get_last_dir(source));
-  // }
-  
-
 	return 0;
 }
 

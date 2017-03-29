@@ -9,7 +9,6 @@ void print_inode_file(char *file, int flag_a);
 int path_exist(char *dir);
 
 int alloc_inode();
-void copy_inode(struct ext2_inode *, struct ext2_inode*);
 int allocate_block();
 char *get_last_dir(char *dir);
 struct ext2_dir_entry_2 * create_new_entry(int src_inode, char *file_name, unsigned char file_type);

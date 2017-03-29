@@ -244,58 +244,6 @@ int alloc_inode(){
     return -1;
 }
 
-/* Helper function to copy inode from src to dest. Does not handle
- * doubbly or tripply indirect pointer
- */
-
-void copy_inode(struct ext2_inode *dest, struct ext2_inode *src){
-
-	memcpy(dest, src, EXT2_BLOCK_SIZE);
-	dest->i_links_count = 1;
-
-	int i;
-	//copy direct block 
-	for(i=0; i < 12; i++){
-		if (src->i_block[i] != 0){
-			dest->i_block[i] = allocate_block();
-			dest->i_blocks += 2;
-			char *dest_block = (char *)(disk + dest->i_block[i] * EXT2_BLOCK_SIZE);
-			 char *src_block = (char *)(disk + src->i_block[i] * EXT2_BLOCK_SIZE);
-			memcpy(dest_block, src_block, EXT2_BLOCK_SIZE);
-
-		}else{
-			dest->i_block[i] = 0;
-		}
-	}
-
-	//copy indirect block
-	if (src->i_block[12] != 0){
-		dest->i_block[12] = allocate_block();
-		dest->i_blocks += 2;
-
-		int i;
-
-		unsigned int *src_block_pt = (unsigned int *)(disk + src->i_block[12] * EXT2_BLOCK_SIZE);
-		unsigned int *dest_block_pt = (unsigned int *)(disk + dest->i_block[12] * EXT2_BLOCK_SIZE);
-
-		int len = (EXT2_BLOCK_SIZE / sizeof (unsigned int));
-
-		for(i = 0; i < len; i++) {
-			if (src_block_pt[i] != 0) {
-				dest_block_pt[i] = allocate_block();
-				dest->i_blocks += 2;
-
-				struct ext2_inode *src_inode = (struct ext2_inode *)disk + src_block_pt[i] * EXT2_BLOCK_SIZE;
-				struct ext2_inode *dest_inode = (struct ext2_inode *)disk + dest_block_pt[i] * EXT2_BLOCK_SIZE;
-				memcpy(dest_inode, src_inode, EXT2_BLOCK_SIZE);
-			} else {
-				dest_block_pt[i] = 0;
-			}
-		}
-	}
-
-}
-
 /*Helper function to find an unused block */
 
 int allocate_block() {
