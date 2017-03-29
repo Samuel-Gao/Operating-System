@@ -40,6 +40,18 @@ int main(int argc, char *argv[]) {
 		return ENOENT;
 	} 
 
+  //Open file on native OS
+  FILE *file;
+  file = fopen(source,"r"); 
+  if( file == NULL ) {
+      printf("No such file or directory\n");
+      return ENOENT;
+  }
+
+  fseek(file, 0, SEEK_END); 
+  int file_size = ftell(file); 
+  fseek(file, 0, SEEK_SET); 
+
   //read virtual disk
 	int fd = open(vir_disk, O_RDWR);
 	disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -48,11 +60,11 @@ int main(int argc, char *argv[]) {
   	exit(1);
   }
 
- 	struct ext2_inode *src_file_inode = find_inode_by_dir(source);
+ 	// struct ext2_inode *src_file_inode = find_inode_by_dir(source);
  	struct ext2_inode *dest_dir_inode = find_inode_by_dir(dest);
   
   //if source or destination path is invalid, return error
-  if ( src_file_inode == NULL || dest_dir_inode == NULL){
+  if (dest_dir_inode == NULL){
     printf("No such file or directory\n");
     return ENOENT;
   }
@@ -67,37 +79,82 @@ int main(int argc, char *argv[]) {
   struct ext2_inode *dest_n_src_inode = find_inode_by_dir(dest_n_src);
   if (dest_n_src_inode != NULL){
     printf("File or directory already exist\n");
-    return ENOENT;
+    return EEXIST;
   }
   
-  //copy file or dir to dest
-  if (src_file_inode->i_mode & EXT2_S_IFREG){
-      
-        int alloc_node = alloc_inode();
+  int alloc_node = alloc_inode();
     
-        if (alloc_node == -1){
-          printf("Insufficient number of inodes\n");
-          exit(1);
-        }
+  if (alloc_node == -1){
+    printf("Insufficient number of inodes\n");
+    exit(1);
+  }
 
-        copy_inode(find_inode(alloc_node), src_file_inode);
-        struct ext2_dir_entry_2 *entry = create_new_entry(alloc_node, get_last_dir(source), EXT2_FT_REG_FILE);
-        add_entry(dest_dir_inode, entry, get_last_dir(source));
-       
-    
-    //if source is not a file
-  }else{
-    int alloc_node = alloc_inode();
-    
-    if (alloc_node == -1){
-      printf("Insufficient number of inodes\n");
-      exit(1);
+  char ch;
+  int block_count = 0;
+  struct ext2_inode *inode = find_inode(alloc_node);
+  inode->i_mode = EXT2_S_IFREG;
+  inode->i_size = file_size;
+
+
+  while( !feof(file)){
+       ch = fgetc(file);
+        if (block_count < 12) { // direct block
+            int alloc_block = allocate_block();
+
+            if  (alloc_block == -1){
+                inode->i_block[block_count] = 0;
+                return -1;
+            }
+
+            inode->i_block[block_count] = alloc_block;// f(ch); // {get a block put ch in it} {return index}
+            
+            unsigned char *block = (unsigned char *) (disk + EXT2_BLOCK_SIZE *alloc_block);
+            *block = ch;
+
+            inode->i_blocks+=2;
+            block_count++;
+
+        }
+        else if (block_count == 12) { 
+            continue; 
+        }
+        else{
+          continue; 
+        }
     }
 
-    copy_inode(find_inode(alloc_node), src_file_inode);
-    struct ext2_dir_entry_2 *entry = create_new_entry(alloc_node, get_last_dir(source), EXT2_FT_DIR );
-    add_entry(dest_dir_inode, entry, get_last_dir(source));
-  }
+  add_entry(dest_dir_inode,alloc_node, get_last_dir(source),EXT2_FT_REG_FILE);
+
+
+
+  //copy file or dir to dest
+  // if (src_file_inode->i_mode & EXT2_S_IFREG){
+      
+  //       int alloc_node = alloc_inode();
+    
+  //       if (alloc_node == -1){
+  //         printf("Insufficient number of inodes\n");
+  //         exit(1);
+  //       }
+
+  //       copy_inode(find_inode(alloc_node), src_file_inode);
+  //       struct ext2_dir_entry_2 *entry = create_new_entry(alloc_node, get_last_dir(source), EXT2_FT_REG_FILE);
+  //       add_entry(dest_dir_inode, entry, get_last_dir(source));
+       
+    
+  //   //if source is not a file
+  // }else{
+  //   int alloc_node = alloc_inode();
+    
+  //   if (alloc_node == -1){
+  //     printf("Insufficient number of inodes\n");
+  //     exit(1);
+  //   }
+
+  //   copy_inode(find_inode(alloc_node), src_file_inode);
+  //   struct ext2_dir_entry_2 *entry = create_new_entry(alloc_node, get_last_dir(source), EXT2_FT_DIR );
+  //   add_entry(dest_dir_inode, entry, get_last_dir(source));
+  // }
   
 
 	return 0;

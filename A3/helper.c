@@ -39,7 +39,7 @@ int find_inode_idx(struct ext2_inode *inode){
 		}
 	}
 
-	return 0;
+	return -1;
 }
 
 /* Helper function to print directories given the inode
@@ -219,39 +219,29 @@ int path_exist(char *dir){
 */
 int alloc_inode(){
 
-	// struct ext2_super_block *sb = (struct ext2_super_block *)(disk + EXT2_BLOCK_SIZE);
-	struct ext2_super_block *sb = (struct ext2_super_block *)(disk + EXT2_BLOCK_SIZE);
-	struct ext2_group_desc *gd;
-	int c;
+	struct ext2_super_block *sb = (struct ext2_super_block *) (disk + 1024);
+	struct ext2_group_desc * gd = (struct ext2_group_desc *)(disk  + 2 * EXT2_BLOCK_SIZE);
+	unsigned int *inode_bitmap = (unsigned int *)(disk + (1024*gd->bg_block_bitmap));
+	
+	int f = 1;
+    for (int i=0;i<32;i++){
+        if ((*inode_bitmap & f) == 0){
+            *inode_bitmap |= f;
 
-	//loop through bitmap to find an empty inode
-
-	for (c=2; c< sb->s_blocks_count; c += sb->s_blocks_per_group){
-		gd = (struct ext2_group_desc*)(disk + c * EXT2_BLOCK_SIZE);
-		if (gd->bg_free_inodes_count >= 1){
-			char *bitmap = (char *)disk + (gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
-
-			int x,y;
-			int bit_pos = -1;
-			for (x=0; x < 4; x++){
-				for (y=0; y<8; y++){
-					if (((bitmap[x] >> y) & 1) == 0){
-						bit_pos = 8 * x + y;
-						break;
-					}
-				}
-			}
-			
-			int inode_idx =  (c * sb->s_inodes_per_group) + bit_pos + 1;
-			char *byte = bitmap + bit_pos / 8;
-			*byte |= 1 << (bit_pos % 8);
-
-			gd->bg_free_inodes_count--;
-			return inode_idx;
-		}
-	}
-
-	return -1;
+            //update inode metatdat
+            struct ext2_inode *inode = find_inode(i+1);
+            inode->i_links_count = 1;
+		    inode->i_ctime = (unsigned int)time(NULL);
+		    inode->i_blocks = 2;
+		    inode->i_dtime = 0;
+		    
+		    //update super block
+		    sb->s_free_inodes_count--;
+            return i+1;
+        }
+        f = f << 1;
+    }
+    return -1;
 }
 
 /* Helper function to copy inode from src to dest. Does not handle
@@ -268,6 +258,7 @@ void copy_inode(struct ext2_inode *dest, struct ext2_inode *src){
 	for(i=0; i < 12; i++){
 		if (src->i_block[i] != 0){
 			dest->i_block[i] = allocate_block();
+			dest->i_blocks += 2;
 			char *dest_block = (char *)(disk + dest->i_block[i] * EXT2_BLOCK_SIZE);
 			 char *src_block = (char *)(disk + src->i_block[i] * EXT2_BLOCK_SIZE);
 			memcpy(dest_block, src_block, EXT2_BLOCK_SIZE);
@@ -280,6 +271,7 @@ void copy_inode(struct ext2_inode *dest, struct ext2_inode *src){
 	//copy indirect block
 	if (src->i_block[12] != 0){
 		dest->i_block[12] = allocate_block();
+		dest->i_blocks += 2;
 
 		int i;
 
@@ -291,6 +283,7 @@ void copy_inode(struct ext2_inode *dest, struct ext2_inode *src){
 		for(i = 0; i < len; i++) {
 			if (src_block_pt[i] != 0) {
 				dest_block_pt[i] = allocate_block();
+				dest->i_blocks += 2;
 
 				struct ext2_inode *src_inode = (struct ext2_inode *)disk + src_block_pt[i] * EXT2_BLOCK_SIZE;
 				struct ext2_inode *dest_inode = (struct ext2_inode *)disk + dest_block_pt[i] * EXT2_BLOCK_SIZE;
@@ -306,72 +299,66 @@ void copy_inode(struct ext2_inode *dest, struct ext2_inode *src){
 /*Helper function to find an unused block */
 
 int allocate_block() {
-	//iterate through all block groups
-	struct ext2_super_block *super_block = (struct ext2_super_block *)(disk + EXT2_BLOCK_SIZE);
-	int num_block = super_block->s_blocks_count;
-	int cur_block;
-
-	for (cur_block=0; cur_block < num_block; cur_block += super_block->s_blocks_per_group){
-		struct ext2_group_desc * gd = (struct ext2_group_desc *)(disk + (cur_block + 2) * EXT2_BLOCK_SIZE);
-		
-		//alloct a block if there exist one free block
-		if (gd->bg_free_blocks_count >= 1){
-			char * bitmap = (char *)disk + (gd->bg_block_bitmap) * EXT2_BLOCK_SIZE;
-			int x,y;
-			
-			//loop through bitmap to find an unused block
-			int bit_pos = -1;
-			for (x=0; x < 16; x++){
-				for(y=0; y< 8; y++){
-					if (((bitmap[x] >> y) & 1) == 0){
-						bit_pos = 8 * x + y;
-						break;
-					}
-				}
-			}
-
-			int block_idx = bit_pos + cur_block + super_block->s_first_data_block;
-
-			char * byte = bitmap + bit_pos / 8;
-			*byte |= 1 << (bit_pos % 8);
-			
-			gd->bg_free_blocks_count--;
-			return block_idx;
-		}
-	}
-
-	return 0;
+	
+	struct ext2_super_block *sb = (struct ext2_super_block *) (disk + 1024);
+	struct ext2_group_desc * gd = (struct ext2_group_desc *)(disk  + 2 * EXT2_BLOCK_SIZE);
+	unsigned int *block_bitmap = (unsigned int *)(disk + (1024*gd->bg_block_bitmap));
+	
+	unsigned f = 1;
+    int block_index = 0;
+    for (int jj=0; jj < 4; jj++){ // 4 block bitmaps
+        for (int j = 0; j < 32; j++) { // 32 bits in each block bitmap
+            block_index++;
+            if ((*block_bitmap & f) == 0){ // block number - "block_index" is free
+                *block_bitmap |= f;
+                
+                 sb->s_free_blocks_count--;
+                return block_index;
+            }
+            f = f << 1;
+        }
+        f = 1;
+        block_bitmap++;
+    }
+    return -1;
 }
 
 /* Helper function to create a new dir entry */
 struct ext2_dir_entry_2 * create_new_entry(int src_inode, char *file_name, unsigned char file_type){
 	
+	struct ext2_group_desc *gd = (struct ext2_group_desc *)(disk + 2 * EXT2_BLOCK_SIZE);
 	struct ext2_dir_entry_2 *new_entry = malloc(sizeof(struct ext2_dir_entry_2));
+	
 	new_entry->inode = src_inode;
 	new_entry->name_len = strlen(file_name);
 	new_entry->file_type = file_type;
+	strncpy(new_entry->name, file_name, strlen(file_name));
+
 	
+	gd->bg_used_dirs_count++;
 	return new_entry;
 }
 
 
-void add_entry(struct ext2_inode * inode, struct ext2_dir_entry_2 *dir_entry, char * entry_name) {
-
-	int dir_entry_size = sizeof(struct ext2_dir_entry_2);
+void add_entry(struct ext2_inode * inode, int inode_num, char * entry_name, unsigned char file_type) {
 
 	int i=0;
 	//loop through blocks 
 	for(; i < 12; i++){
 		int block = inode->i_block[i];
-		
 		//if block is not in use, alloc an block and add entry there.
 		if (block == 0){
-			
 			inode->i_block[i] = allocate_block();
-			dir_entry->rec_len = EXT2_BLOCK_SIZE;
-
-			memcpy(disk + inode->i_block[i] * EXT2_BLOCK_SIZE + dir_entry_size, entry_name, dir_entry->name_len);
-			(*(struct ext2_dir_entry_2 *)(disk + inode->i_block[i] * EXT2_BLOCK_SIZE)) = *dir_entry;
+			inode->i_blocks += 2;
+			
+			struct ext2_dir_entry_2 * new_entry = (struct ext2_dir_entry_2 *) disk + block * EXT2_BLOCK_SIZE;
+			
+			new_entry->rec_len = EXT2_BLOCK_SIZE;
+			strncpy(new_entry->name, entry_name, strlen(entry_name));
+            new_entry->name[strlen(entry_name)] = 0;               //                     not sure
+            new_entry->name_len = strlen(entry_name);
+            new_entry->file_type = file_type;
+            new_entry->inode = inode_num;
 			return;
 		
 		//if block is in use, check if there is space for new entry
@@ -381,33 +368,38 @@ void add_entry(struct ext2_inode * inode, struct ext2_dir_entry_2 *dir_entry, ch
 			struct ext2_dir_entry_2 *cur_entry = (struct ext2_dir_entry_2 *)disk + block * EXT2_BLOCK_SIZE;
 			char *cur_dir = (char *)disk + block * EXT2_BLOCK_SIZE;
 			char *end_dir = (char *)cur_dir + EXT2_BLOCK_SIZE;
-
+			
 			while (cur_dir < end_dir){
 
 				//recalculate dir_length
 				cur_entry = (struct ext2_dir_entry_2*)cur_dir;
 				if (cur_dir + cur_entry->rec_len >= end_dir){
 					
-					int actual_size = dir_entry_size + cur_entry->name_len;
-					char *size_after_adding_new_dir = (char *) cur_dir + actual_size + dir_entry->name_len + dir_entry_size;
+					int actual_size = 8 + strlen(cur_entry->name);
+					actual_size = (actual_size/4 + (actual_size%4!=0)) *4;
+					int remain = cur_entry->rec_len - actual_size;
 					
-					if (size_after_adding_new_dir < end_dir) {
+					int sum = 8 + strlen(entry_name);
+    				int len_needed = ( (sum/4) +(sum%4!=0) ) *4;
+					
+					if (remain > len_needed){
 						cur_entry->rec_len = actual_size;
 						cur_dir += cur_entry->rec_len;
-						break;
+						struct ext2_dir_entry_2 * new_entry = (struct ext2_dir_entry_2 *) cur_dir;
+
+						new_entry->rec_len = remain;
+	                    //new_entry->name = malloc(strlen(dir_name));                              // necessary?
+	                    strncpy(new_entry->name, entry_name, strlen(entry_name));
+	                    new_entry->name[strlen(entry_name)] = 0;               //                     not sure
+	                    new_entry->name_len = strlen(entry_name);
+	                    new_entry->file_type = file_type;
+	                    new_entry->inode = inode_num;
+						return;
 					}
 
 				}
 		
 				cur_dir += cur_entry->rec_len;
-			}
-
-			//add entry if there is enough space
-			if (cur_dir != end_dir) {
-				dir_entry->rec_len = end_dir - cur_dir;
-				(*(struct ext2_dir_entry_2 *)cur_dir) = *dir_entry;
-				memcpy(cur_dir + dir_entry_size, entry_name, dir_entry->name_len);
-				return;
 			}
 		}
 	}
@@ -489,9 +481,7 @@ void remove_file(char *dir){
  */
 void create_hard_link(struct ext2_inode *src, struct ext2_inode *target, char *file_name){
 	int inode_idx = find_inode_idx(src);
-	printf("idx: %i\n",inode_idx);
-	struct ext2_dir_entry_2 *entry = create_new_entry(inode_idx, file_name, EXT2_FT_REG_FILE);
-	add_entry(target, entry, file_name);
+	add_entry(target, inode_idx, file_name, EXT2_FT_REG_FILE);
 }
 //note to myslef:
 //1) Remember to update inode metatdata, link_count, i_block, 

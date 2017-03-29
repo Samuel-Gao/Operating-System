@@ -7,8 +7,32 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <time.h>
 
 unsigned char *disk;
+
+int ext2_mkdir(char *path, struct ext2_inode *path_inode){
+	
+	int alloc_node = alloc_inode();
+
+    if (alloc_node == -1){
+      printf("Insufficient number of inodes\n");
+      return -1;
+    }
+
+	struct ext2_inode *inode = find_inode(alloc_node);
+    for (int i=0;i<15;i++)
+		inode->i_block[i] = 0;
+
+    //set metatdata
+    inode->i_mode = EXT2_S_IFDIR;
+    
+	char *fname = get_last_dir(path);
+	
+	add_entry(path_inode, alloc_node, fname, EXT2_FT_DIR);
+	return 0;
+
+}
 
 /* Take 2 arguments. First one is virtual disk, second
  * is absolute path in which the dir is to be created.
@@ -52,26 +76,9 @@ int main(int argc, char *argv[]) {
 		if (dir_inode != NULL){
 			printf("Error: Directory already exist.\n");
 			return EEXIST;
-
-		//create directory
-		}else{
-			int alloc_node = alloc_inode();
-    		printf("node alloc:%i\n", alloc_node);
-    		// printf("block alloc is:%i\n", alloc_inode->i_block[0]);
-	        
-	        if (alloc_node == -1){
-	          printf("Insufficient number of inodes\n");
-	          exit(1);
-	        }
-
-	        struct ext2_inode *inode = find_inode(alloc_node);
-	        // inode->i_block[0] = allocate_block();
-	        inode->i_links_count = 1;
-	        inode->i_mode |= EXT2_S_IFDIR;
-       		
-			struct ext2_dir_entry_2 *entry = create_new_entry(alloc_node, get_last_dir(path), EXT2_FT_DIR);
-			add_entry(path_inode, entry, get_last_dir(path));
 		}
+
+		return ext2_mkdir(path, path_inode);
 
 	//create dir not at root level
 	}else{
@@ -90,22 +97,9 @@ int main(int argc, char *argv[]) {
 			return EEXIST;
 		}
 
-		int alloc_node = alloc_inode();
-		struct ext2_inode *inode = find_inode(alloc_node);
-		// inode->i_block[0] = allocate_block();
-        inode->i_links_count = 1;
-        inode->i_mode |= EXT2_S_IFDIR;
+		return ext2_mkdir(path, path_inode);
 
-        if (alloc_node == -1){
-          printf("Insufficient number of inodes\n");
-          exit(1);
-        }
-   
-		struct ext2_dir_entry_2 *entry = create_new_entry(alloc_node, get_last_dir(path), EXT2_FT_DIR);
-		add_entry(path_inode, entry, get_last_dir(path));
 	}
-	
-	
 
 	return 0;
 
