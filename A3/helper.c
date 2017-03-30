@@ -369,6 +369,38 @@ char *get_last_dir(char *dir){
 	return last_token;
 }
 
+/* Helper function to set given bitmap at index to zero
+*/
+
+void set_bitmap_zero(unsigned int * bitmap, int index) {
+  bitmap += (index / 32);
+  unsigned int f = ~(1 << (index%32));
+  *bitmap &= f;
+}
+
+/* Helper function to set inode & block bitmap to zero for given inode
+*/
+
+void set_bitmap_zero_for_this_inode(int inode_num){
+	struct ext2_group_desc * gd = (struct ext2_group_desc *)(disk + 2048);
+	struct ext2_inode *inode = find_inode(inode_num);
+
+	unsigned int *inode_bitmap = (unsigned int *)(disk + (1024 * gd->bg_inode_bitmap));
+	unsigned int *block_bitmap = (unsigned int *)(disk + (1024 * gd->bg_block_bitmap));
+
+	set_bitmap_zero(inode_bitmap, inode_num);
+	
+	int i;
+	for (i=0; i<15; i++){
+		if (inode->i_block[i] == 0){
+			return;
+		}else if (inode->i_block[i] != 0){
+			set_bitmap_zero(block_bitmap, inode->i_block[i]);
+		}
+	}
+
+}
+
 void remove_file(char *dir){
 
 	//set i_dttime
@@ -411,6 +443,8 @@ void remove_file(char *dir){
 				strncpy(fname,cur_entry->name, cur_entry->name_len);
 				
 				if (strcmp(fname, entry_to_remove) == 0){
+					// Set bitmap of block and inode to zero
+					set_bitmap_zero_for_this_inode(cur_entry->inode);
 					pre_entry->rec_len += cur_entry->rec_len;
 					return;
 					

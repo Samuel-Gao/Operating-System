@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 
 	if (strncmp(dir, "/", 1) != 0){
 		perror("Error: Invalid path. Please use absolute path.");
-		return -1;
+		exit(1);
 	} 
 
 	//Read virtual disk
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     
     //If it is a directory, return EISDIR
     }else if ((inode != NULL) && (inode->i_mode & EXT2_S_IFDIR)){
-    	printf("Error: File is a directory.\n");
+    	printf("Error: Cannot remove a directory.\n");
     	return EISDIR;
     
     }else {
