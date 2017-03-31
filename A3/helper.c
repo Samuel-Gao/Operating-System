@@ -409,8 +409,9 @@ void remove_file(char *dir){
 	inode_to_remove->i_links_count--;
 
 	char *entry_to_remove = get_last_dir(dir);
-	char parent [strlen(dir)+1];
-	realpath(dir, parent);
+
+	char *parent = malloc(sizeof(char *));
+	strncpy(parent, dir, strlen(dir) - strlen(get_last_dir(dir)));
 
 	struct ext2_inode *parent_inode;
 	
@@ -443,8 +444,10 @@ void remove_file(char *dir){
 				strncpy(fname,cur_entry->name, cur_entry->name_len);
 				
 				if (strcmp(fname, entry_to_remove) == 0){
+					
 					// Set bitmap of block and inode to zero
 					set_bitmap_zero_for_this_inode(cur_entry->inode);
+
 					pre_entry->rec_len += cur_entry->rec_len;
 					return;
 					
@@ -471,18 +474,6 @@ void create_hard_link(struct ext2_inode *src, struct ext2_inode *dest_path, char
  */
 void create_symbolic_link(struct ext2_inode *src, struct ext2_inode *dest_path, char *old_fname, char *file_name){
 	
-	// if (src->i_mode & EXT2_S_IFREG){
-	// 	// struct ext2_dir_entry_2 *org_entry = (struct ext2_dir_entry_2 *)(disk + src->i_block[0] * EXT2_BLOCK_SIZE);
-	// 	char *org_entry = (char *)(disk + src->i_block[0] * EXT2_BLOCK_SIZE);
-	// 	printf("%s\n",org_entry);
-	// 	printf("file\n");
-	// }else{
-	// 	printf("not a file\n");
-	// }
-	// return;
-	printf("%i\n",find_inode_idx(src));
-	printf("%i\n",find_inode_idx(dest_path));
-	
 	//create inode for symbolic link
 	int inode_idx = alloc_inode();
 	struct ext2_inode *inode = find_inode(inode_idx);
@@ -502,58 +493,49 @@ void create_symbolic_link(struct ext2_inode *src, struct ext2_inode *dest_path, 
 	add_entry(dest_path, inode_idx, file_name, EXT2_FT_SYMLINK);
 	return;
 
-	// int alloc_block = allocate_block();
 
- //    if  (alloc_block == -1){
- //        inode->i_block[alloc_block] = 0;
- //        printf("Error:Insufficient number of blocks.\n");
- //        exit(1);
- //    }
+}
 
- //    inode->i_blocks +=2;
- //    inode->i_block[0] = alloc_block;
+/* Helper function to recursively remove directory and its content */
+void remove_dir(char* dir){
 
-   //  struct ext2_dir_entry_2 *org_entry;
-   //  int i;
+	struct ext2_inode *inode = find_inode_by_dir(dir);
+	if (strcmp(&dir[strlen(dir)], "/") != 0){
+		strcat(dir, "/");
+	}
 
-   //  //look for the textfile inode to points to
-   //  for (i = 0; i < 12; i ++){
-   //  	int block = src->i_block[i];
-    	
-   //  	if (block != 0){
-   //  		org_entry = (struct ext2_dir_entry_2 *)(disk + block * EXT2_BLOCK_SIZE);
-    		
-   //  		unsigned char *cur_size;
-			// unsigned char *total_size = (disk + (block * EXT2_BLOCK_SIZE));
-			// cur_size = total_size;
+	for (int i=0; i<12; i++){
+		int block = inode->i_block[i];
 		
-			
-			// printf("first block\n");
+		if (block != 0){
+			char * cur_size = (char *)(disk + block * EXT2_BLOCK_SIZE);
+			char * total_size = cur_size + EXT2_BLOCK_SIZE;
+			struct ext2_dir_entry_2 *entry; 
 
-			// while (cur_size < total_size + EXT2_BLOCK_SIZE){
+			//remove entries in directory
+			while (cur_size < total_size){
+				entry = (struct ext2_dir_entry_2 *)(cur_size);
 
-   //  			char *fname = malloc(sizeof(org_entry->name_len));
-			// 	strncpy(fname,org_entry->name, org_entry->name_len);
+				//create path of the file to delete
+				char *fname = malloc(entry->name_len);
+				strncpy(fname, entry->name, entry->name_len);
 
-			// 	printf("comparing %s and %s\n",fname, old_fname );
+				if (strcmp(fname, ".") != 0 && strcmp(fname, "..") != 0){
+					char *dir_to_remove = malloc(120); //hopefully enough
+					strcat(dir_to_remove, dir);
+					strcat(dir_to_remove, fname);
+					remove_file(dir_to_remove);
+				}
+				cur_size += entry->rec_len;
 
-			// 	//if found, points symbolic link data to file content.
-			// 	if (strcmp(fname, old_fname) == 0){
-			// 		struct ext2_inode *pointer_inode = find_inode(org_entry->inode);
-			// 		memcpy(inode->i_block, pointer_inode->i_block, sizeof(unsigned int) * 15);
-			// 		add_entry(dest_path, inode_idx, file_name, EXT2_FT_SYMLINK);
-			// 		printf("successfully created\n");
-			// 		return;
-			// 	}
+			}
 
-			// 	cur_size += org_entry->rec_len;
-			// 	org_entry = (struct ext2_dir_entry_2 *)cur_size;
-			// }
+			//remove directory
+			remove_file(dir);
 
-   //  	}else{
-   //  		exit(1);
-   //  	}
-     
-   //  }
-
+		}else{
+			break;
+		}
+		
+	}
 }
