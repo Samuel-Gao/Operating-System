@@ -42,16 +42,7 @@ int main(int argc, char *argv[]){
 		src_path = argv[2];
 		target_path = argv[3];
 	}
-	char *target_path_file = malloc(sizeof(src_path) + sizeof(target_path));
-	strcpy(target_path_file,target_path);
 	
-	//create /path/file, use for checking if file already exist at target path
-	if (strcmp(&target_path[strlen(target_path) - 1], "/") == 0){
-		strcat(target_path_file, get_last_dir(src_path));
-	}else{
-	  	strcat(target_path_file, "/");
-	    strcat(target_path_file, get_last_dir(src_path));
-	 }
 
 	//check absolute path is provided
 	if ((strncmp(src_path, "/", 1) != 0) || (strncmp(target_path, "/", 1) != 0)){
@@ -72,10 +63,14 @@ int main(int argc, char *argv[]){
 
     
     //check source file exist
-    if ((src_file_inode == NULL) || (target_path_inode == NULL)){
+    if (src_file_inode == NULL){
     	printf("Error: No such file or directory \n");
     	return ENOENT;
     
+    }else if (target_path_inode != NULL){
+    	printf("Error: File already exist.\n");
+    	return EEXIST;
+  
     //check if source file is directory
     }else if (src_file_inode->i_mode & EXT2_S_IFDIR){
     	printf("Error: Source file is directory.\n");
@@ -84,16 +79,19 @@ int main(int argc, char *argv[]){
     //check source file does not exist at targeted path
     }
 
-    struct ext2_inode *target_path_file_inode = find_inode_by_dir(target_path_file);
-    if (target_path_file_inode != NULL){
-    	printf("Error: Source file already exist at path.\n");
-    	return EEXIST;
+    char *actualpath = malloc(sizeof(char));
+    strncpy(actualpath, target_path, strlen(target_path) - strlen(get_last_dir(target_path)));
+    struct ext2_inode *target_path_file_inode = find_inode_by_dir(actualpath);
+
+    if (target_path_file_inode == NULL){
+    	printf("Error: Directory to destination does not exist.\n");
+    	return ENOENT;
     }
 
     if (!flag){
-    	create_hard_link(src_file_inode, target_path_inode, get_last_dir(src_path));
+    	create_hard_link(src_file_inode, target_path_file_inode, get_last_dir(target_path));
     }else{
-    	// create_soft_link();
+    	create_symbolic_link(src_file_inode, target_path_file_inode, get_last_dir(src_path), get_last_dir(target_path));
     }
 
 	return 0;

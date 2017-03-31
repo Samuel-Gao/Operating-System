@@ -1,4 +1,4 @@
-/* MODIFIED by Karen Reid for CSC369
+	/* MODIFIED by Karen Reid for CSC369
  * to remove some of the unnecessary components */
 
 /* MODIFIED by Tian Ze Chen for CSC369

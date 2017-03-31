@@ -16,4 +16,5 @@ void add_entry(struct ext2_inode * inode, int inode_num, char * entry_name, unsi
 
 void remove_file(char *dir);
 void create_hard_link(struct ext2_inode *src, struct ext2_inode *target, char *file_name);
+void create_symbolic_link(struct ext2_inode *src, struct ext2_inode *dest_path,char *old_fname, char *file_name);
 int find_inode_idx(struct ext2_inode *inode);

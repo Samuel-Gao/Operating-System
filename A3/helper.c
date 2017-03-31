@@ -68,7 +68,7 @@ void print_inode_dir(struct ext2_inode *inode, int flag){
 			if (!flag && (strcmp(fname, ".") == 0 || strcmp(fname, "..")==0)){
 				//don't print 
 			}else{
-				printf("%s\n", fname);
+				printf("%s\n", fname);	
 			}
 			
 			cur_size += dir->rec_len;
@@ -234,7 +234,7 @@ int alloc_inode(){
 		    inode->i_ctime = (unsigned int)time(NULL);
 		    inode->i_blocks = 2;
 		    inode->i_dtime = 0;
-		    
+			
 		    //update super block
 		    sb->s_free_inodes_count--;
             return i+1;
@@ -303,7 +303,7 @@ void add_entry(struct ext2_inode * inode, int inode_num, char * entry_name, unsi
 			
 			new_entry->rec_len = EXT2_BLOCK_SIZE;
 			strncpy(new_entry->name, entry_name, strlen(entry_name));
-            new_entry->name[strlen(entry_name)] = 0;               //                     not sure
+            new_entry->name[strlen(entry_name)] = 0;               
             new_entry->name_len = strlen(entry_name);
             new_entry->file_type = file_type;
             new_entry->inode = inode_num;
@@ -336,9 +336,9 @@ void add_entry(struct ext2_inode * inode, int inode_num, char * entry_name, unsi
 						struct ext2_dir_entry_2 * new_entry = (struct ext2_dir_entry_2 *) cur_dir;
 
 						new_entry->rec_len = remain;
-	                    //new_entry->name = malloc(strlen(dir_name));                              // necessary?
+	                    //new_entry->name = malloc(strlen(dir_name));                             
 	                    strncpy(new_entry->name, entry_name, strlen(entry_name));
-	                    new_entry->name[strlen(entry_name)] = 0;               //                     not sure
+	                    new_entry->name[strlen(entry_name)] = 0;               
 	                    new_entry->name_len = strlen(entry_name);
 	                    new_entry->file_type = file_type;
 	                    new_entry->inode = inode_num;
@@ -459,11 +459,101 @@ void remove_file(char *dir){
 	}
 }
 
-/* Helper function to create a hard link of src at target. 
+/* Helper function to create a hard link of src at dest_path. 
  */
-void create_hard_link(struct ext2_inode *src, struct ext2_inode *target, char *file_name){
+void create_hard_link(struct ext2_inode *src, struct ext2_inode *dest_path, char *file_name){
 	int inode_idx = find_inode_idx(src);
-	add_entry(target, inode_idx, file_name, EXT2_FT_REG_FILE);
+	add_entry(dest_path, inode_idx, file_name, EXT2_FT_REG_FILE);
 }
-//note to myslef:
-//1) Remember to update inode metatdata, link_count, i_block, 
+
+/* Helper function to create symbolic link for given src at dest_path.
+ * Note that we cannot use helper function add_entry for this.
+ */
+void create_symbolic_link(struct ext2_inode *src, struct ext2_inode *dest_path, char *old_fname, char *file_name){
+	
+	// if (src->i_mode & EXT2_S_IFREG){
+	// 	// struct ext2_dir_entry_2 *org_entry = (struct ext2_dir_entry_2 *)(disk + src->i_block[0] * EXT2_BLOCK_SIZE);
+	// 	char *org_entry = (char *)(disk + src->i_block[0] * EXT2_BLOCK_SIZE);
+	// 	printf("%s\n",org_entry);
+	// 	printf("file\n");
+	// }else{
+	// 	printf("not a file\n");
+	// }
+	// return;
+	printf("%i\n",find_inode_idx(src));
+	printf("%i\n",find_inode_idx(dest_path));
+	
+	//create inode for symbolic link
+	int inode_idx = alloc_inode();
+	struct ext2_inode *inode = find_inode(inode_idx);
+	
+	inode->i_mode = EXT2_S_IFLNK;
+    inode->i_links_count = 1;
+
+	for (int i=0;i<15;i++)
+		inode->i_block[i] = 0;
+
+	int block_idx = allocate_block();
+	inode->i_block[0] = block_idx;
+	char *path =(char *)(disk + block_idx * EXT2_BLOCK_SIZE);
+	strcpy(path, "/afile"); 
+	printf("%s\n",path );
+	// memcpy(inode->i_block, src->i_block, sizeof(unsigned int) * 15);
+	add_entry(dest_path, inode_idx, file_name, EXT2_FT_SYMLINK);
+	return;
+
+	// int alloc_block = allocate_block();
+
+ //    if  (alloc_block == -1){
+ //        inode->i_block[alloc_block] = 0;
+ //        printf("Error:Insufficient number of blocks.\n");
+ //        exit(1);
+ //    }
+
+ //    inode->i_blocks +=2;
+ //    inode->i_block[0] = alloc_block;
+
+   //  struct ext2_dir_entry_2 *org_entry;
+   //  int i;
+
+   //  //look for the textfile inode to points to
+   //  for (i = 0; i < 12; i ++){
+   //  	int block = src->i_block[i];
+    	
+   //  	if (block != 0){
+   //  		org_entry = (struct ext2_dir_entry_2 *)(disk + block * EXT2_BLOCK_SIZE);
+    		
+   //  		unsigned char *cur_size;
+			// unsigned char *total_size = (disk + (block * EXT2_BLOCK_SIZE));
+			// cur_size = total_size;
+		
+			
+			// printf("first block\n");
+
+			// while (cur_size < total_size + EXT2_BLOCK_SIZE){
+
+   //  			char *fname = malloc(sizeof(org_entry->name_len));
+			// 	strncpy(fname,org_entry->name, org_entry->name_len);
+
+			// 	printf("comparing %s and %s\n",fname, old_fname );
+
+			// 	//if found, points symbolic link data to file content.
+			// 	if (strcmp(fname, old_fname) == 0){
+			// 		struct ext2_inode *pointer_inode = find_inode(org_entry->inode);
+			// 		memcpy(inode->i_block, pointer_inode->i_block, sizeof(unsigned int) * 15);
+			// 		add_entry(dest_path, inode_idx, file_name, EXT2_FT_SYMLINK);
+			// 		printf("successfully created\n");
+			// 		return;
+			// 	}
+
+			// 	cur_size += org_entry->rec_len;
+			// 	org_entry = (struct ext2_dir_entry_2 *)cur_size;
+			// }
+
+   //  	}else{
+   //  		exit(1);
+   //  	}
+     
+   //  }
+
+}

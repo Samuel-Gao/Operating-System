@@ -25,17 +25,6 @@ int main(int argc, char *argv[]) {
 	char *dest = argv[3];
   
 
-  // char *dest_n_src = malloc(sizeof(dest) + sizeof(source));
-  // strcpy(dest_n_src, dest);
-
-  //create /path/file, use for checking if file already exist
-  // if (strcmp(&dest[strlen(dest) - 1], "/") == 0){
-  //   strcat(dest_n_src, get_last_dir(source));
-  // }else{
-  //   strcat(dest_n_src, "/");
-  //   strcat(dest_n_src, get_last_dir(source));
-  // }
-
   //If paths are not absolute, return error
 	if (strncmp(dest, "/", 1) != 0 || strncmp(source, "/", 1) != 0){
 		printf("Error: Invalid path. Please use absolute path.\n");
@@ -71,18 +60,14 @@ int main(int argc, char *argv[]) {
   	exit(1);
   }
 
-  char actualpath [strlen(dest)+1];
-  realpath(dest, actualpath);
-  
-  if (strcmp(actualpath, dest) == 0){
-    strcpy(actualpath, "/");
-  }
+  char *actualpath = malloc(sizeof(char));
+  strncpy(actualpath, dest, strlen(dest) - strlen(get_last_dir(dest)));
 
   struct ext2_inode *dest_dir_inode = find_inode_by_dir(dest);
   
-  //if source or destination path is invalid, return error
+  //if source or destination path areadly exist, return error
   if (dest_dir_inode != NULL){
-    printf("Error:File or directory already exist.\n");
+    printf("Error: File or directory already exist.\n");
     return EEXIST;
   }
 
@@ -94,20 +79,6 @@ int main(int argc, char *argv[]) {
     return ENOENT;
   }
 
-
-  // if (!(dest_path_inode->i_mode & EXT2_S_IFDIR)){
-  //     printf("File or directory already exist.\n");
-  //     return EEXIST;
-  // }
-
- 	
-  
-  //if source file already exist in dest, return error
-  // struct ext2_inode *dest_n_src_inode = find_inode_by_dir(dest_n_src);
-  // if (dest_n_src_inode != NULL){
-  //   printf("File or directory already exist\n");
-  //   return EEXIST;
-  // }
   
   int alloc_node = alloc_inode();
     
@@ -191,7 +162,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-  add_entry(dest_path_inode,alloc_node, get_last_dir(dest),EXT2_FT_REG_FILE);
+  add_entry(dest_path_inode, alloc_node, get_last_dir(dest),EXT2_FT_REG_FILE);
 
 	return 0;
 }
