@@ -21,7 +21,8 @@ int ext2_mkdir(char *path, struct ext2_inode *path_inode){
     }
 
 	struct ext2_inode *inode = find_inode(alloc_node);
-    for (int i=0;i<15;i++)
+    int i;
+    for (i=0;i<15;i++)
 		inode->i_block[i] = 0;
 
     //set metatdata
@@ -30,6 +31,8 @@ int ext2_mkdir(char *path, struct ext2_inode *path_inode){
 	char *fname = get_last_dir(path);
 	
 	add_entry(path_inode, alloc_node, fname, EXT2_FT_DIR);
+	add_entry(inode, alloc_node, ".", EXT2_FT_DIR);
+	add_entry(inode, find_inode_idx(path_inode), "..", EXT2_FT_DIR);
 	return 0;
 
 }

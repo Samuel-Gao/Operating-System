@@ -74,8 +74,8 @@ int main(int argc, char *argv[]) {
     
     }else if(node->i_mode & EXT2_S_IFDIR){
     	print_inode_dir(node, flag_a);
-    }else if (node->i_mode & EXT2_S_IFREG){
-    	print_inode_file(dir_cpy, flag_a);
+    }else if (!(node->i_mode & EXT2_S_IFDIR)){
+    	print_inode_file(dir_cpy, flag_a, (node->i_mode & EXT2_S_IFDIR));
     }
    
     return 0;

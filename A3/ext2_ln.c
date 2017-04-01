@@ -91,7 +91,7 @@ int main(int argc, char *argv[]){
     if (!flag){
     	create_hard_link(src_file_inode, target_path_file_inode, get_last_dir(target_path));
     }else{
-    	create_symbolic_link(src_file_inode, target_path_file_inode, get_last_dir(src_path), get_last_dir(target_path));
+    	create_symbolic_link(src_path, target_path_file_inode, get_last_dir(target_path));
     }
 
 	return 0;

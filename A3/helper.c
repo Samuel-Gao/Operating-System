@@ -116,19 +116,37 @@ int find_file_inode(struct ext2_inode *inode, char *file_name){
 	return -1;
 }
 /* Helper function to print the file */
-void print_inode_file(char *file, int flag_a){
+void print_inode_file(char *file, int flag_a, int is_dir){
+
+	//strip ending / from file path
+	char *file_cpy = malloc(sizeof(file));
+	int file_size = strlen(file);
+	if (file_size > 2){
+		
+		if (strcmp(&file[file_size - 1], "/") == 0){
+			strncpy(file_cpy, file, file_size - 1);
+		}else{
+			strcpy(file_cpy, file);
+		}
+	}
 
 	char *token;
 	char *last_token;
 	
-	while ((token = strsep(&file, "/"))) {
+	while ((token = strsep(&file_cpy, "/"))) {
 		last_token = token;
 	}
 
-	if (flag_a){
+	//if directory, print . and ..
+	if (flag_a && is_dir){
 		printf(".\n");
 		printf("..\n");
 		printf("%s\n", last_token);
+
+	//if link or file, don't print . and ..
+	}else if (!is_dir){
+		printf("%s\n", last_token);
+
 	}else {
 		printf("%s\n", last_token);
 	}
@@ -224,7 +242,8 @@ int alloc_inode(){
 	unsigned int *inode_bitmap = (unsigned int *)(disk + (1024*gd->bg_block_bitmap));
 	
 	int f = 1;
-    for (int i=0;i<32;i++){
+	int i;
+    for (i=0;i<32;i++){
         if ((*inode_bitmap & f) == 0){
             *inode_bitmap |= f;
 
@@ -254,8 +273,10 @@ int allocate_block() {
 	
 	unsigned f = 1;
     int block_index = 0;
-    for (int jj=0; jj < 4; jj++){ // 4 block bitmaps
-        for (int j = 0; j < 32; j++) { // 32 bits in each block bitmap
+    int jj;
+    int j;
+    for (jj=0; jj < 4; jj++){ // 4 block bitmaps
+        for (j = 0; j < 32; j++) { // 32 bits in each block bitmap
             block_index++;
             if ((*block_bitmap & f) == 0){ // block number - "block_index" is free
                 *block_bitmap |= f;
@@ -289,7 +310,7 @@ struct ext2_dir_entry_2 * create_new_entry(int src_inode, char *file_name, unsig
 
 
 void add_entry(struct ext2_inode * inode, int inode_num, char * entry_name, unsigned char file_type) {
-
+	
 	int i=0;
 	//loop through blocks 
 	for(; i < 12; i++){
@@ -299,8 +320,7 @@ void add_entry(struct ext2_inode * inode, int inode_num, char * entry_name, unsi
 			inode->i_block[i] = allocate_block();
 			inode->i_blocks += 2;
 			
-			struct ext2_dir_entry_2 * new_entry = (struct ext2_dir_entry_2 *) disk + block * EXT2_BLOCK_SIZE;
-			
+			struct ext2_dir_entry_2 * new_entry = (struct ext2_dir_entry_2 *) (disk + inode->i_block[i] * EXT2_BLOCK_SIZE);
 			new_entry->rec_len = EXT2_BLOCK_SIZE;
 			strncpy(new_entry->name, entry_name, strlen(entry_name));
             new_entry->name[strlen(entry_name)] = 0;               
@@ -313,12 +333,11 @@ void add_entry(struct ext2_inode * inode, int inode_num, char * entry_name, unsi
 		//if there is, re-calculate dir len and add entry 
 		//if not, then continue to next block. 
 		}else if (block > 0){
-			struct ext2_dir_entry_2 *cur_entry = (struct ext2_dir_entry_2 *)disk + block * EXT2_BLOCK_SIZE;
+			struct ext2_dir_entry_2 *cur_entry = (struct ext2_dir_entry_2 *)(disk + block * EXT2_BLOCK_SIZE);
 			char *cur_dir = (char *)disk + block * EXT2_BLOCK_SIZE;
 			char *end_dir = (char *)cur_dir + EXT2_BLOCK_SIZE;
 			
 			while (cur_dir < end_dir){
-
 				//recalculate dir_length
 				cur_entry = (struct ext2_dir_entry_2*)cur_dir;
 				if (cur_dir + cur_entry->rec_len >= end_dir){
@@ -335,13 +354,13 @@ void add_entry(struct ext2_inode * inode, int inode_num, char * entry_name, unsi
 						cur_dir += cur_entry->rec_len;
 						struct ext2_dir_entry_2 * new_entry = (struct ext2_dir_entry_2 *) cur_dir;
 
-						new_entry->rec_len = remain;
-	                    //new_entry->name = malloc(strlen(dir_name));                             
+						new_entry->rec_len = remain;   
 	                    strncpy(new_entry->name, entry_name, strlen(entry_name));
-	                    new_entry->name[strlen(entry_name)] = 0;               
+	                    new_entry->name[strlen(entry_name)] = 0;     
 	                    new_entry->name_len = strlen(entry_name);
 	                    new_entry->file_type = file_type;
 	                    new_entry->inode = inode_num;
+	                  
 						return;
 					}
 
@@ -472,7 +491,7 @@ void create_hard_link(struct ext2_inode *src, struct ext2_inode *dest_path, char
 /* Helper function to create symbolic link for given src at dest_path.
  * Note that we cannot use helper function add_entry for this.
  */
-void create_symbolic_link(struct ext2_inode *src, struct ext2_inode *dest_path, char *old_fname, char *file_name){
+void create_symbolic_link(char *src_dir, struct ext2_inode *dest_path, char *file_name){
 	
 	//create inode for symbolic link
 	int inode_idx = alloc_inode();
@@ -481,15 +500,16 @@ void create_symbolic_link(struct ext2_inode *src, struct ext2_inode *dest_path, 
 	inode->i_mode = EXT2_S_IFLNK;
     inode->i_links_count = 1;
 
-	for (int i=0;i<15;i++)
+    int i;
+	for (i=0;i<15;i++)
 		inode->i_block[i] = 0;
 
 	int block_idx = allocate_block();
 	inode->i_block[0] = block_idx;
-	char *path =(char *)(disk + block_idx * EXT2_BLOCK_SIZE);
-	strcpy(path, "/afile"); 
-	printf("%s\n",path );
-	// memcpy(inode->i_block, src->i_block, sizeof(unsigned int) * 15);
+
+	char *path = malloc(strlen(src_dir) - 1 );
+	path = &src_dir[1];
+	strcpy((char *)(disk + block_idx * EXT2_BLOCK_SIZE), path);
 	add_entry(dest_path, inode_idx, file_name, EXT2_FT_SYMLINK);
 	return;
 
@@ -504,7 +524,8 @@ void remove_dir(char* dir){
 		strcat(dir, "/");
 	}
 
-	for (int i=0; i<12; i++){
+	int i;
+	for (i=0; i<12; i++){
 		int block = inode->i_block[i];
 		
 		if (block != 0){
@@ -525,6 +546,7 @@ void remove_dir(char* dir){
 					strcat(dir_to_remove, dir);
 					strcat(dir_to_remove, fname);
 					remove_file(dir_to_remove);
+					
 				}
 				cur_size += entry->rec_len;
 
@@ -532,7 +554,7 @@ void remove_dir(char* dir){
 
 			//remove directory
 			remove_file(dir);
-
+			
 		}else{
 			break;
 		}
